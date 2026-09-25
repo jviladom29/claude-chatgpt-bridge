@@ -1,27 +1,29 @@
 import os
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
-from openai import OpenAI
 
-app = FastAPI()
+from openai import OpenAI
+from mcp.server.mcpserver import MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
+
 
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-
-@app.get("/")
-def home():
-    return {"status": "Claude-ChatGPT bridge running"}
+mcp = MCPServer("Claude ChatGPT Bridge")
 
 
-@app.post("/chat")
-def chat(data: dict):
-    message = data.get("message", "")
-
+@mcp.tool()
+def ask_chatgpt(message: str) -> str:
+    """Envia una pregunta a ChatGPT i retorna la seva resposta."""
     response = client.responses.create(
         model="gpt-5",
         input=message
     )
+    return response.output_text
 
-    return JSONResponse({
-        "response": response.output_text
-    })
+
+security = TransportSecuritySettings(
+    enable_dns_rebinding_protection=False
+)
+
+app = mcp.streamable_http_app(
+    transport_security=security
+)
